@@ -68,38 +68,38 @@ func VerifyGoogleIDToken(authToken string, certs *Certs, aud string) (*TokenInfo
 	tokeninfo, err := getTokenInfo(payload)
 	if err != nil {
 		err := errors.New("Token is not valid, failed to parse")
-		return nil, err
+		return tokeninfo, err
 	}
 	//fmt.Println(tokeninfo)
 	if aud != tokeninfo.Aud {
 		err := errors.New("Token is not valid, Audience from token and certificate don't match")
-		return nil, err
+		return tokeninfo, err
 	}
 	if (tokeninfo.Iss != "accounts.google.com") && (tokeninfo.Iss != "https://accounts.google.com") {
 		err := errors.New("Token is not valid, ISS from token and certificate don't match")
-		return nil, err
+		return tokeninfo, err
 	}
 	if !checkTime(tokeninfo) {
 		err := errors.New("Token is not valid, Token is expired.")
-		return nil, err
+		return tokeninfo, err
 	}
 
 	key, err := choiceKeyByKeyID(certs.Keys, getAuthTokenKeyID(header))
 	if err != nil {
-		return nil, err
+		return tokeninfo, err
 	}
 	n, err := urlsafeB64decode(key.N)
 	if err != nil {
-		return nil, err
+		return tokeninfo, err
 	}
 	e, err := urlsafeB64decode(key.E)
 	if err != nil {
-		return nil, err
+		return tokeninfo, err
 	}
 	pKey := rsa.PublicKey{N: byteToInt(n), E: btrToInt(byteToBtr(e))}
 	err = rsa.VerifyPKCS1v15(&pKey, crypto.SHA256, messageToSign, signature)
 	if err != nil {
-		return nil, err
+		return tokeninfo, err
 	}
 	return tokeninfo, nil
 }
