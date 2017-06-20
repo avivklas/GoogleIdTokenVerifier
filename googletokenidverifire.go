@@ -61,7 +61,11 @@ func Verify(authToken string, aud string) (*TokenInfo, error) {
 func VerifyGoogleIDToken(authToken string, certs *Certs, aud string) (*TokenInfo, error) {
 	header, payload, signature, messageToSign := divideAuthToken(authToken)
 
-	tokeninfo := getTokenInfo(payload)
+	tokeninfo, err := getTokenInfo(payload)
+	if err != nil {
+		err := errors.New("Token is not valid, failed to parse")
+		return nil, err
+	}
 	//fmt.Println(tokeninfo)
 	if aud != tokeninfo.Aud {
 		err := errors.New("Token is not valid, Audience from token and certificate don't match")
@@ -88,10 +92,13 @@ func VerifyGoogleIDToken(authToken string, certs *Certs, aud string) (*TokenInfo
 	return tokeninfo, nil
 }
 
-func getTokenInfo(bt []byte) *TokenInfo {
+func getTokenInfo(bt []byte) (*TokenInfo, error) {
 	var a *TokenInfo
-	json.Unmarshal(bt, &a)
-	return a
+	err := json.Unmarshal(bt, &a)
+	if err != nil {
+		return nil, err
+	}
+	return a, nil
 }
 
 func checkTime(tokeninfo *TokenInfo) bool {
