@@ -9,7 +9,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"math/big"
@@ -54,45 +53,39 @@ type TokenInfo struct {
 // https://github.com/google/oauth2client/blob/master/oauth2client/crypt.py
 
 // Verify is
-func Verify(authToken string, aud string) *TokenInfo {
+func Verify(authToken string, aud string) (*TokenInfo, error) {
 	return VerifyGoogleIDToken(authToken, GetCerts(GetCertsFromURL()), aud)
 }
 
 // VerifyGoogleIDToken is
-func VerifyGoogleIDToken(authToken string, certs *Certs, aud string) *TokenInfo {
+func VerifyGoogleIDToken(authToken string, certs *Certs, aud string) (*TokenInfo, error) {
 	header, payload, signature, messageToSign := divideAuthToken(authToken)
 
 	tokeninfo := getTokenInfo(payload)
-	var niltokeninfo *TokenInfo
 	//fmt.Println(tokeninfo)
 	if aud != tokeninfo.Aud {
 		err := errors.New("Token is not valid, Audience from token and certificate don't match")
-		fmt.Printf("Error verifying key %s\n", err.Error())
-		return niltokeninfo
+		return nil, err
 	}
 	if (tokeninfo.Iss != "accounts.google.com") && (tokeninfo.Iss != "https://accounts.google.com") {
 		err := errors.New("Token is not valid, ISS from token and certificate don't match")
-		fmt.Printf("Error verifying key %s\n", err.Error())
-		return niltokeninfo
+		return nil, err
 	}
 	if !checkTime(tokeninfo) {
 		err := errors.New("Token is not valid, Token is expired.")
-		fmt.Printf("Error verifying key %s\n", err.Error())
-		return niltokeninfo
+		return nil, err
 	}
 
 	key, err := choiceKeyByKeyID(certs.Keys, getAuthTokenKeyID(header))
 	if err != nil {
-		fmt.Printf("Error verifying key %s\n", err.Error())
-		return niltokeninfo
+		return nil, err
 	}
 	pKey := rsa.PublicKey{N: byteToInt(urlsafeB64decode(key.N)), E: btrToInt(byteToBtr(urlsafeB64decode(key.E)))}
 	err = rsa.VerifyPKCS1v15(&pKey, crypto.SHA256, messageToSign, signature)
 	if err != nil {
-		fmt.Printf("Error verifying key %s\n", err.Error())
-		return niltokeninfo
+		return nil, err
 	}
-	return tokeninfo
+	return tokeninfo, nil
 }
 
 func getTokenInfo(bt []byte) *TokenInfo {
