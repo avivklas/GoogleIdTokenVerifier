@@ -70,7 +70,7 @@ func VerifyGoogleIDToken(authToken string, certs *Certs, aud string) (*TokenInfo
 		err := errors.New("Token is not valid, failed to parse")
 		return tokeninfo, err
 	}
-	//fmt.Println(tokeninfo)
+
 	if aud != tokeninfo.Aud {
 		err := errors.New("Token is not valid, Audience from token and certificate don't match")
 		return tokeninfo, err
