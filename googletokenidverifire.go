@@ -59,7 +59,11 @@ func Verify(authToken string, aud string) (*TokenInfo, error) {
 
 // VerifyGoogleIDToken is
 func VerifyGoogleIDToken(authToken string, certs *Certs, aud string) (*TokenInfo, error) {
-	header, payload, signature, messageToSign := divideAuthToken(authToken)
+	header, payload, signature, messageToSign, err := divideAuthToken(authToken)
+	if err != nil {
+		err := errors.New("Token is not valid, parsing failed")
+		return nil, err
+	}
 
 	tokeninfo, err := getTokenInfo(payload)
 	if err != nil {
@@ -84,7 +88,15 @@ func VerifyGoogleIDToken(authToken string, certs *Certs, aud string) (*TokenInfo
 	if err != nil {
 		return nil, err
 	}
-	pKey := rsa.PublicKey{N: byteToInt(urlsafeB64decode(key.N)), E: btrToInt(byteToBtr(urlsafeB64decode(key.E)))}
+	n, err := urlsafeB64decode(key.N)
+	if err != nil {
+		return nil, err
+	}
+	e, err := urlsafeB64decode(key.E)
+	if err != nil {
+		return nil, err
+	}
+	pKey := rsa.PublicKey{N: byteToInt(n), E: btrToInt(byteToBtr(e))}
 	err = rsa.VerifyPKCS1v15(&pKey, crypto.SHA256, messageToSign, signature)
 	if err != nil {
 		return nil, err
@@ -123,22 +135,24 @@ func GetCerts(bt []byte) *Certs {
 	return certs
 }
 
-func urlsafeB64decode(str string) []byte {
+func urlsafeB64decode(str string) ([]byte, error) {
 	if m := len(str) % 4; m != 0 {
 		str += strings.Repeat("=", 4-m)
 	}
-	bt, _ := base64.URLEncoding.DecodeString(str)
-	return bt
+	bt, err := base64.URLEncoding.DecodeString(str)
+	if err != nil {
+		return nil, err
+	}
+	return bt, nil
 }
 
 func choiceKeyByKeyID(a []keys, tknkid string) (keys, error) {
-	if len(a) == 2 {
-		if a[0].Kid == tknkid {
-			return a[0], nil
+
+	for _, key := range a {
+		if key.Kid == tknkid {
+			return key, nil
 		}
-		if a[1].Kid == tknkid {
-			return a[1], nil
-		}
+
 	}
 	err := errors.New("Token is not valid, kid from token and certificate don't match")
 	var b keys
@@ -151,9 +165,27 @@ func getAuthTokenKeyID(bt []byte) string {
 	return a.Kid
 }
 
-func divideAuthToken(str string) ([]byte, []byte, []byte, []byte) {
+func divideAuthToken(str string) ([]byte, []byte, []byte, []byte, error) {
 	args := strings.Split(str, ".")
-	return urlsafeB64decode(args[0]), urlsafeB64decode(args[1]), urlsafeB64decode(args[2]), calcSum(args[0] + "." + args[1])
+
+	header, err := urlsafeB64decode(args[0])
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	payload, err := urlsafeB64decode(args[1])
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	signature, err := urlsafeB64decode(args[2])
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	messageToSign, err := calcSum(args[0] + "." + args[1])
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	return header, payload, signature, messageToSign, nil
 }
 
 func byteToBtr(bt0 []byte) *bytes.Reader {
@@ -167,10 +199,13 @@ func byteToBtr(bt0 []byte) *bytes.Reader {
 	return bytes.NewReader(bt1)
 }
 
-func calcSum(str string) []byte {
+func calcSum(str string) ([]byte, error) {
 	a := sha256.New()
-	a.Write([]byte(str))
-	return a.Sum(nil)
+	_, err := a.Write([]byte(str))
+	if err != nil {
+		return nil, err
+	}
+	return a.Sum(nil), nil
 }
 
 func btrToInt(a io.Reader) int {
