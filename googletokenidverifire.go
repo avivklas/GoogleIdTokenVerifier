@@ -54,7 +54,11 @@ type TokenInfo struct {
 
 // Verify is
 func Verify(authToken string, aud string) (*TokenInfo, error) {
-	return VerifyGoogleIDToken(authToken, GetCerts(GetCertsFromURL()), aud)
+	certs, err := GetCertsFromURL()
+	if err != nil {
+		return err
+	}
+	return VerifyGoogleIDToken(authToken, GetCerts(certs), aud)
 }
 
 // VerifyGoogleIDToken is
@@ -121,11 +125,17 @@ func checkTime(tokeninfo *TokenInfo) bool {
 }
 
 //GetCertsFromURL is
-func GetCertsFromURL() []byte {
-	res, _ := http.Get("https://www.googleapis.com/oauth2/v3/certs")
-	certs, _ := ioutil.ReadAll(res.Body)
+func GetCertsFromURL() ([]byte, error) {
+	res, err := http.Get("https://www.googleapis.com/oauth2/v3/certs")
+	if err != nil {
+		return nil, err
+	}
+	certs, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
 	res.Body.Close()
-	return certs
+	return certs, nil
 }
 
 //GetCerts is
