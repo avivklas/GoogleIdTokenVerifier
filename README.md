@@ -8,5 +8,12 @@ authToken := "XXXXXXXXXXX.XXXXXXXXXXXX.XXXXXXXXXX"
 
 aud := "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.apps.googleusercontent.com"
 
-fmt.Println(Verify(authToken, aud))
+tokenInfo, err := Verify(authToken, aud)
+
+if err != nil {
+    // handle error
+}
+
+fmt.Println(tokenInfo)
+
 ```
