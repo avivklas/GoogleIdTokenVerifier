@@ -56,7 +56,7 @@ type TokenInfo struct {
 func Verify(authToken string, aud string) (*TokenInfo, error) {
 	certs, err := GetCertsFromURL()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	return VerifyGoogleIDToken(authToken, GetCerts(certs), aud)
 }
